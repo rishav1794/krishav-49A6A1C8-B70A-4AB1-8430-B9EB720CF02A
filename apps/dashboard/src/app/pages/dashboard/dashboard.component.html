@@ -1,0 +1,215 @@
+<div class="min-h-screen bg-gray-50">
+  <!-- Navbar -->
+  <nav class="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
+    <h1 class="text-xl font-bold text-gray-800">Task Manager</h1>
+    <div class="flex items-center gap-4">
+      <span class="text-sm text-gray-600">
+        {{ currentUser?.name }}
+        <span class="ml-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          {{ currentUser?.role }}
+        </span>
+      </span>
+      <button
+        (click)="logout()"
+        class="text-sm text-red-600 hover:text-red-800 font-medium"
+      >
+        Logout
+      </button>
+    </div>
+  </nav>
+
+  <div class="max-w-6xl mx-auto px-6 py-8">
+    <!-- Filters & Actions -->
+    <div class="flex flex-wrap gap-4 mb-6 items-center justify-between">
+      <div class="flex gap-3">
+        <select
+          [(ngModel)]="filterStatus"
+          (change)="applyFilters()"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">All Statuses</option>
+          <option value="todo">Todo</option>
+          <option value="in_progress">In Progress</option>
+          <option value="done">Done</option>
+        </select>
+
+        <select
+          [(ngModel)]="filterCategory"
+          (change)="applyFilters()"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">All Categories</option>
+          <option value="work">Work</option>
+          <option value="personal">Personal</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      @if (canEdit()) {
+        <button
+          (click)="showCreateModal = true"
+          class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+        >
+          + New Task
+        </button>
+      }
+    </div>
+
+    <!-- Tasks Grid -->
+    @if (loading) {
+      <div class="text-center py-12 text-gray-500">Loading tasks...</div>
+    } @else if (filteredTasks.length === 0) {
+      <div class="text-center py-12 text-gray-500">
+        No tasks found. @if (canEdit()) { Click "New Task" to create one. }
+      </div>
+    } @else {
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        @for (task of filteredTasks; track task.id) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            @if (editingTask?.id === task.id) {
+              <!-- Edit Mode -->
+              <div class="space-y-3">
+                <input
+                  [(ngModel)]="editingTask!.title"
+                  class="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                />
+                <input
+                  [(ngModel)]="editingTask!.description"
+                  class="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                  placeholder="Description"
+                />
+                <select
+                  [(ngModel)]="editingTask!.status"
+                  class="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                >
+                  <option value="todo">Todo</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="done">Done</option>
+                </select>
+                <select
+                  [(ngModel)]="editingTask!.category"
+                  class="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                >
+                  <option value="work">Work</option>
+                  <option value="personal">Personal</option>
+                  <option value="other">Other</option>
+                </select>
+                <div class="flex gap-2">
+                  <button
+                    (click)="saveEdit()"
+                    class="flex-1 bg-green-600 text-white py-1 rounded text-sm hover:bg-green-700"
+                  >
+                    Save
+                  </button>
+                  <button
+                    (click)="editingTask = null"
+                    class="flex-1 bg-gray-200 text-gray-700 py-1 rounded text-sm hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            } @else {
+              <!-- View Mode -->
+              <div class="flex justify-between items-start mb-2">
+                <h3 class="font-medium text-gray-800 flex-1">{{ task.title }}</h3>
+                @if (canEdit()) {
+                  <div class="flex gap-1 ml-2">
+                    <button
+                      (click)="startEdit(task)"
+                      class="text-blue-500 hover:text-blue-700 text-xs px-2 py-1"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      (click)="deleteTask(task.id)"
+                      class="text-red-500 hover:text-red-700 text-xs px-2 py-1"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                }
+              </div>
+
+              @if (task.description) {
+                <p class="text-sm text-gray-500 mb-3">{{ task.description }}</p>
+              }
+
+              <div class="flex gap-2 flex-wrap mb-3">
+                <span class="px-2 py-1 rounded-full text-xs font-medium {{ getStatusColor(task.status) }}">
+                  {{ task.status.replace('_', ' ') }}
+                </span>
+                <span class="px-2 py-1 rounded-full text-xs font-medium {{ getCategoryColor(task.category) }}">
+                  {{ task.category }}
+                </span>
+              </div>
+
+              @if (canEdit()) {
+                <select
+                  [value]="task.status"
+                  (change)="updateStatus(task, $any($event.target).value)"
+                  class="w-full px-2 py-1 border border-gray-300 rounded text-xs mt-1"
+                >
+                  <option value="todo">Todo</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="done">Done</option>
+                </select>
+              }
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Create Task Modal -->
+  @if (showCreateModal) {
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 w-full max-w-md">
+        <h2 class="text-lg font-bold mb-4">Create New Task</h2>
+        <div class="space-y-3">
+          <input
+            [(ngModel)]="newTask.title"
+            placeholder="Task title"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          />
+          <input
+            [(ngModel)]="newTask.description"
+            placeholder="Description (optional)"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          />
+          <select
+            [(ngModel)]="newTask.status"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          >
+            <option value="todo">Todo</option>
+            <option value="in_progress">In Progress</option>
+            <option value="done">Done</option>
+          </select>
+          <select
+            [(ngModel)]="newTask.category"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          >
+            <option value="work">Work</option>
+            <option value="personal">Personal</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="flex gap-3 mt-4">
+          <button
+            (click)="createTask()"
+            class="flex-1 bg-blue-600 text-white py-2 rounded-md text-sm font-medium hover:bg-blue-700"
+          >
+            Create
+          </button>
+          <button
+            (click)="showCreateModal = false"
+            class="flex-1 bg-gray-200 text-gray-700 py-2 rounded-md text-sm hover:bg-gray-300"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>
