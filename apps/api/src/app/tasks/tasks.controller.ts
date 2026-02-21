@@ -13,7 +13,9 @@ import { TasksService } from './tasks.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { CreateTaskDto, UpdateTaskDto, Role } from '@krishav/data';
+import { PermissionsGuard } from '../auth/permissions.guard';
+import { Permissions } from '../auth/permissions.decorator';
+import { CreateTaskDto, UpdateTaskDto, Permission, Role } from '@krishav/data';
 
 interface AuthRequest {
   user: {
@@ -25,23 +27,26 @@ interface AuthRequest {
 }
 
 @Controller('tasks')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Post()
-  @Roles(Role.OWNER, Role.ADMIN)
+  @Roles(Role.ADMIN)
+  @Permissions(Permission.TASK_CREATE)
   create(@Body() createTaskDto: CreateTaskDto, @Request() req: AuthRequest) {
     return this.tasksService.create(createTaskDto, req.user);
   }
 
   @Get()
+  @Permissions(Permission.TASK_READ)
   findAll(@Request() req: AuthRequest) {
     return this.tasksService.findAll(req.user);
   }
 
   @Put(':id')
-  @Roles(Role.OWNER, Role.ADMIN)
+  @Roles(Role.ADMIN)
+  @Permissions(Permission.TASK_UPDATE)
   update(
     @Param('id') id: string,
     @Body() updateTaskDto: UpdateTaskDto,
@@ -51,7 +56,8 @@ export class TasksController {
   }
 
   @Delete(':id')
-  @Roles(Role.OWNER, Role.ADMIN)
+  @Roles(Role.ADMIN)
+  @Permissions(Permission.TASK_DELETE)
   remove(@Param('id') id: string, @Request() req: AuthRequest) {
     return this.tasksService.remove(+id, req.user);
   }

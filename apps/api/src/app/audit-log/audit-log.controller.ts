@@ -5,7 +5,9 @@ import { AuditLog } from '../entities/audit-log.entity';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { Role } from '@krishav/data';
+import { PermissionsGuard } from '../auth/permissions.guard';
+import { Permissions } from '../auth/permissions.decorator';
+import { Permission, Role } from '@krishav/data';
 
 interface AuthRequest {
   user: {
@@ -17,7 +19,7 @@ interface AuthRequest {
 }
 
 @Controller('audit-log')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class AuditLogController {
   constructor(
     @InjectRepository(AuditLog)
@@ -25,7 +27,8 @@ export class AuditLogController {
   ) {}
 
   @Get()
-  @Roles(Role.OWNER, Role.ADMIN)
+  @Roles(Role.ADMIN)
+  @Permissions(Permission.AUDIT_LOG_READ)
   findAll(@Request() req: AuthRequest) {
     return this.auditLogRepository.find({
       where: { organizationId: req.user.organizationId },

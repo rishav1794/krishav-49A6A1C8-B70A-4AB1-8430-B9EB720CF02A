@@ -21,7 +21,7 @@
   <div class="max-w-6xl mx-auto px-6 py-8">
     <!-- Filters & Actions -->
     <div class="flex flex-wrap gap-4 mb-6 items-center justify-between">
-      <div class="flex gap-3">
+      <div class="flex gap-3 flex-wrap">
         <select
           [(ngModel)]="filterStatus"
           (change)="applyFilters()"
@@ -43,6 +43,27 @@
           <option value="personal">Personal</option>
           <option value="other">Other</option>
         </select>
+
+        <select
+          [(ngModel)]="sortBy"
+          (change)="onSortChange()"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="order">Sort: Manual Order</option>
+          <option value="createdAt">Sort: Created Date</option>
+          <option value="title">Sort: Title</option>
+          <option value="status">Sort: Status</option>
+          <option value="category">Sort: Category</option>
+        </select>
+
+        <select
+          [(ngModel)]="sortDirection"
+          (change)="onSortChange()"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="asc">Ascending</option>
+          <option value="desc">Descending</option>
+        </select>
       </div>
 
       @if (canEdit()) {
@@ -55,6 +76,35 @@
       }
     </div>
 
+    @if (actionError) {
+      <div class="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        {{ actionError }}
+      </div>
+    }
+
+    @if (canEdit() && filteredTasks.length > 0) {
+      <div class="mb-6">
+        <p class="text-xs text-gray-500 mb-2">
+          Drag any task card and drop it on a status lane to update status.
+        </p>
+        <p class="text-xs text-gray-500 mb-2">
+          Admins can only manage tasks they created.
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          @for (zone of statusDropZones; track zone.value) {
+            <div
+              (dragover)="allowDrop($event)"
+              (drop)="dropOnStatus(zone.value)"
+              class="border-2 border-dashed rounded-lg p-3 min-h-20 {{ zone.classes }}"
+            >
+              <p class="text-sm font-medium text-gray-700">{{ zone.label }}</p>
+              <p class="text-xs text-gray-500 mt-1">Drop here</p>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
     <!-- Tasks Grid -->
     @if (loading) {
       <div class="text-center py-12 text-gray-500">Loading tasks...</div>
@@ -65,7 +115,12 @@
     } @else {
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         @for (task of filteredTasks; track task.id) {
-          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div
+            [draggable]="canManageTask(task)"
+            (dragstart)="onDragStart(task)"
+            (dragend)="onDragEnd()"
+            class="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
+          >
             @if (editingTask?.id === task.id) {
               <!-- Edit Mode -->
               <div class="space-y-3">
@@ -117,13 +172,17 @@
                   <div class="flex gap-1 ml-2">
                     <button
                       (click)="startEdit(task)"
-                      class="text-blue-500 hover:text-blue-700 text-xs px-2 py-1"
+                      [disabled]="!canManageTask(task)"
+                      [title]="canManageTask(task) ? 'Edit task' : 'Only task creator can edit this task'"
+                      class="text-blue-500 hover:text-blue-700 disabled:text-gray-400 disabled:cursor-not-allowed text-xs px-2 py-1"
                     >
                       Edit
                     </button>
                     <button
-                      (click)="deleteTask(task.id)"
-                      class="text-red-500 hover:text-red-700 text-xs px-2 py-1"
+                      (click)="deleteTask(task)"
+                      [disabled]="!canManageTask(task)"
+                      [title]="canManageTask(task) ? 'Delete task' : 'Only task creator can delete this task'"
+                      class="text-red-500 hover:text-red-700 disabled:text-gray-400 disabled:cursor-not-allowed text-xs px-2 py-1"
                     >
                       Delete
                     </button>
@@ -148,7 +207,8 @@
                 <select
                   [value]="task.status"
                   (change)="updateStatus(task, $any($event.target).value)"
-                  class="w-full px-2 py-1 border border-gray-300 rounded text-xs mt-1"
+                  [disabled]="!canManageTask(task)"
+                  class="w-full px-2 py-1 border border-gray-300 rounded text-xs mt-1 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                 >
                   <option value="todo">Todo</option>
                   <option value="in_progress">In Progress</option>

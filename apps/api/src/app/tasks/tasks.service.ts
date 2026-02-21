@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Task } from '../entities/task.entity';
 import { AuditLog } from '../entities/audit-log.entity';
+import { Organization } from '../entities/organization.entity';
 import { CreateTaskDto, UpdateTaskDto, Role, TaskStatus, TaskCategory } from '@krishav/data';
 
 interface AuthUser {
@@ -18,8 +19,34 @@ export class TasksService {
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
     @InjectRepository(AuditLog)
-    private auditLogRepository: Repository<AuditLog>
+    private auditLogRepository: Repository<AuditLog>,
+    @InjectRepository(Organization)
+    private organizationRepository: Repository<Organization>
   ) {}
+
+  private async getAccessibleOrganizationIds(user: AuthUser): Promise<number[]> {
+    const accessible = new Set<number>([user.organizationId]);
+
+    if (user.role === Role.OWNER || user.role === Role.ADMIN) {
+      const childOrganizations = await this.organizationRepository.find({
+        where: { parentOrganizationId: user.organizationId },
+        select: ['id'],
+      });
+
+      for (const org of childOrganizations) {
+        accessible.add(org.id);
+      }
+    }
+
+    return [...accessible];
+  }
+
+  private async assertOrganizationAccess(task: Task, user: AuthUser): Promise<void> {
+    const accessibleOrganizationIds = await this.getAccessibleOrganizationIds(user);
+    if (!accessibleOrganizationIds.includes(task.organizationId)) {
+      throw new ForbiddenException('Access denied');
+    }
+  }
 
   private async log(action: string, resourceId: number, user: AuthUser, details?: string) {
     const entry = this.auditLogRepository.create({
@@ -49,15 +76,14 @@ export class TasksService {
   }
 
   async findAll(user: AuthUser) {
-  return this.taskRepository
-    .createQueryBuilder('task')
-    .where('task.organizationId = :organizationId', {
-      organizationId: user.organizationId,
-    })
-    .orderBy('task."order"', 'ASC')
-    .addOrderBy('task.createdAt', 'DESC')
-    .getMany();
-}
+    const organizationIds = await this.getAccessibleOrganizationIds(user);
+    return this.taskRepository
+      .createQueryBuilder('task')
+      .where('task.organizationId IN (:...organizationIds)', { organizationIds })
+      .orderBy('task."order"', 'ASC')
+      .addOrderBy('task.createdAt', 'DESC')
+      .getMany();
+  }
 
 
   async update(id: number, updateTaskDto: UpdateTaskDto, user: AuthUser) {
@@ -65,12 +91,14 @@ export class TasksService {
 
     if (!task) throw new NotFoundException('Task not found');
 
-    if (task.organizationId !== user.organizationId) {
-      throw new ForbiddenException('Access denied');
-    }
+    await this.assertOrganizationAccess(task, user);
 
     if (user.role === Role.VIEWER) {
       throw new ForbiddenException('Viewers cannot edit tasks');
+    }
+
+    if (user.role === Role.ADMIN && task.createdById !== user.id) {
+      throw new ForbiddenException('Admins can only edit their own tasks');
     }
 
     await this.taskRepository.update(id, updateTaskDto);
@@ -83,9 +111,7 @@ export class TasksService {
 
     if (!task) throw new NotFoundException('Task not found');
 
-    if (task.organizationId !== user.organizationId) {
-      throw new ForbiddenException('Access denied');
-    }
+    await this.assertOrganizationAccess(task, user);
 
     if (user.role === Role.VIEWER) {
       throw new ForbiddenException('Viewers cannot delete tasks');

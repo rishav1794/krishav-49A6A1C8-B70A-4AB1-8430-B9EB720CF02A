@@ -9,4 +9,3 @@ export * from './lib/dto/create-user.dto';
 export * from './lib/enums/role.enum';
 export * from './lib/enums/task-status.enum';
 export * from './lib/enums/task-category.enum';
-export * from './lib/enums/permission.enum';
