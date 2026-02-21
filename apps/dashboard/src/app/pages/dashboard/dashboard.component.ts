@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -15,6 +15,7 @@ export class DashboardComponent implements OnInit {
   private authService = inject(AuthService);
   private taskService = inject(TaskService);
   private router = inject(Router);
+  private cdr = inject(ChangeDetectorRef);
 
   tasks: Task[] = [];
   filteredTasks: Task[] = [];
@@ -43,9 +44,11 @@ export class DashboardComponent implements OnInit {
         this.tasks = tasks;
         this.applyFilters();
         this.loading = false;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.loading = false;
+        this.cdr.detectChanges();
       },
     });
   }
@@ -83,7 +86,17 @@ export class DashboardComponent implements OnInit {
 
   saveEdit() {
     if (!this.editingTask) return;
-    this.taskService.updateTask(this.editingTask.id, this.editingTask).subscribe({
+    const { title, description, status, category, assignedToId, order } = this.editingTask;
+    this.taskService
+      .updateTask(this.editingTask.id, {
+        title,
+        description,
+        status,
+        category,
+        assignedToId,
+        order,
+      })
+      .subscribe({
       next: () => {
         this.editingTask = null;
         this.loadTasks();
