@@ -7,6 +7,6 @@
   "types": "./src/index.d.ts",
   "dependencies": {
     "tslib": "^2.3.0",
-    "class-validator": "^latest" 
+    "class-validator": "^0.14.3"
   }
 }
